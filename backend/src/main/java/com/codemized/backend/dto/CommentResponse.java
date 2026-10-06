@@ -9,6 +9,7 @@ public class CommentResponse {
     private String content;
     private UUID taskId;
     private UUID authorId;
+    private String authorName;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -17,6 +18,7 @@ public class CommentResponse {
             String content,
             UUID taskId,
             UUID authorId,
+            String authorName,
             LocalDateTime createdAt,
             LocalDateTime updatedAt) {
 
@@ -24,6 +26,7 @@ public class CommentResponse {
         this.content = content;
         this.taskId = taskId;
         this.authorId = authorId;
+        this.authorName = authorName;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
@@ -42,6 +45,10 @@ public class CommentResponse {
 
     public UUID getAuthorId() {
         return authorId;
+    }
+
+    public String getAuthorName() {
+        return authorName;
     }
 
     public LocalDateTime getCreatedAt() {

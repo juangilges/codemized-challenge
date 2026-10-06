@@ -13,6 +13,7 @@ import com.codemized.backend.model.Task;
 import com.codemized.backend.model.User;
 
 import com.codemized.backend.repository.CommentRepository;
+import com.codemized.backend.repository.ProjectMemberRepository;
 import com.codemized.backend.repository.TaskRepository;
 
 import org.springframework.stereotype.Service;
@@ -25,17 +26,20 @@ public class CommentService {
 
     private final CommentRepository commentRepository;
     private final TaskRepository taskRepository;
+    private final ProjectMemberRepository projectMemberRepository;
 
     public CommentService(
             CommentRepository commentRepository,
-            TaskRepository taskRepository) {
+            TaskRepository taskRepository,
+            ProjectMemberRepository projectMemberRepository) {
 
         this.commentRepository = commentRepository;
         this.taskRepository = taskRepository;
+        this.projectMemberRepository = projectMemberRepository;
     }
 
     // Crear comentario
-    // Creador o participante del proyecto
+    // Creador o miembro del proyecto
     public CommentResponse createComment(
             UUID taskId,
             User author,
@@ -43,7 +47,10 @@ public class CommentService {
 
         Task task = findTask(taskId);
 
-        validateProjectAccess(task, author.getId());
+        validateProjectAccess(
+                task,
+                author.getId()
+        );
 
         if (request.getContent() == null
                 || request.getContent().isBlank()) {
@@ -66,14 +73,17 @@ public class CommentService {
     }
 
     // Listar comentarios
-    // Creador o participante del proyecto
+    // Creador o miembro del proyecto
     public List<CommentResponse> listComments(
             UUID taskId,
             UUID userId) {
 
         Task task = findTask(taskId);
 
-        validateProjectAccess(task, userId);
+        validateProjectAccess(
+                task,
+                userId
+        );
 
         return commentRepository
                 .findByTask_Id(taskId)
@@ -89,9 +99,13 @@ public class CommentService {
             UUID userId,
             UpdateCommentRequest request) {
 
-        Comment comment = findComment(commentId);
+        Comment comment =
+                findComment(commentId);
 
-        validateAuthor(comment, userId);
+        validateAuthor(
+                comment,
+                userId
+        );
 
         if (request.getContent() == null
                 || request.getContent().isBlank()) {
@@ -101,7 +115,9 @@ public class CommentService {
             );
         }
 
-        comment.setContent(request.getContent());
+        comment.setContent(
+                request.getContent()
+        );
 
         Comment updatedComment =
                 commentRepository.save(comment);
@@ -115,9 +131,13 @@ public class CommentService {
             UUID commentId,
             UUID userId) {
 
-        Comment comment = findComment(commentId);
+        Comment comment =
+                findComment(commentId);
 
-        validateAuthor(comment, userId);
+        validateAuthor(
+                comment,
+                userId
+        );
 
         commentRepository.delete(comment);
     }
@@ -135,7 +155,8 @@ public class CommentService {
     }
 
     // Buscar comentario o devolver 404
-    private Comment findComment(UUID commentId) {
+    private Comment findComment(
+            UUID commentId) {
 
         return commentRepository
                 .findById(commentId)
@@ -147,12 +168,14 @@ public class CommentService {
     }
 
     // Verificar acceso al proyecto
+    // Debe ser creador o miembro
     private void validateProjectAccess(
             Task task,
             UUID userId) {
 
         UUID projectId =
-                task.getProject().getId();
+                task.getProject()
+                        .getId();
 
         boolean isCreator =
                 task.getProject()
@@ -160,14 +183,14 @@ public class CommentService {
                         .getId()
                         .equals(userId);
 
-        boolean isParticipant =
-                taskRepository
-                        .existsByProject_IdAndAssignee_Id(
+        boolean isMember =
+                projectMemberRepository
+                        .existsByProject_IdAndUser_Id(
                                 projectId,
                                 userId
                         );
 
-        if (!isCreator && !isParticipant) {
+        if (!isCreator && !isMember) {
             throw new ForbiddenException(
                     "No tienes acceso a este proyecto"
             );
@@ -200,6 +223,7 @@ public class CommentService {
                 comment.getContent(),
                 comment.getTask().getId(),
                 comment.getAuthor().getId(),
+                comment.getAuthor().getName(),
                 comment.getCreatedAt(),
                 comment.getUpdatedAt()
         );

@@ -3,11 +3,20 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import LoginForm from "../components/auth/LoginForm";
+import RegisterForm from "../components/auth/RegisterForm";
+
+import styles from "./page.module.css";
+
 export default function Home() {
   const router = useRouter();
 
+  const [mode, setMode] = useState("login");
+
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -23,7 +32,8 @@ export default function Home() {
           {
             method: "POST",
             headers: {
-              "Content-Type": "application/json",
+              "Content-Type":
+                  "application/json",
             },
             body: JSON.stringify({
               email,
@@ -32,66 +42,154 @@ export default function Home() {
           }
       );
 
-      const data = await response.json();
+      const data =
+          await response.json();
 
       if (!response.ok) {
-        setMessage(data.message || "No se pudo iniciar sesión");
+        setMessage(
+            data.message ||
+            "No se pudo iniciar sesión"
+        );
+
         return;
       }
 
-      localStorage.setItem("token", data.token);
+      localStorage.setItem(
+          "token",
+          data.token
+      );
 
       router.push("/dashboard");
 
     } catch (error) {
-      setMessage("No se pudo conectar con el servidor");
+      setMessage(
+          "No se pudo conectar con el servidor"
+      );
+
     } finally {
       setLoading(false);
     }
   };
 
+  const handleRegister = async (event) => {
+    event.preventDefault();
+
+    setLoading(true);
+    setMessage("");
+
+    if (password.length < 6) {
+      setMessage(
+          "La contraseña debe tener al menos 6 caracteres"
+      );
+
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/auth/register`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                  "application/json",
+            },
+            body: JSON.stringify({
+              name,
+              email,
+              password,
+            }),
+          }
+      );
+
+      const data =
+          await response.json();
+
+      if (!response.ok) {
+        setMessage(
+            data.message ||
+            "No se pudo crear la cuenta"
+        );
+
+        return;
+      }
+
+      setName("");
+      setPassword("");
+      setMode("login");
+
+      setMessage(
+          "Cuenta creada correctamente. Ya podés iniciar sesión."
+      );
+
+    } catch (error) {
+      setMessage(
+          "No se pudo conectar con el servidor"
+      );
+
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const showLogin = () => {
+    setMode("login");
+    setMessage("");
+    setPassword("");
+  };
+
+  const showRegister = () => {
+    setMode("register");
+    setMessage("");
+    setPassword("");
+  };
+
   return (
-      <main>
-        <h1>Codemized</h1>
-        <h2>Iniciar sesión</h2>
+      <main className={styles.authPage}>
 
-        <form onSubmit={handleLogin}>
-          <div>
-            <label htmlFor="email">Correo electrónico</label>
-            <br />
+        <header className={styles.authHeader}>
+          <h1 className={styles.authTitle}>
+            Codemized
+          </h1>
 
-            <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                required
+          <p className={styles.authSubtitle}>
+            Gestión de proyectos y tareas
+          </p>
+        </header>
+
+        {mode === "login" ? (
+            <LoginForm
+                email={email}
+                setEmail={setEmail}
+                password={password}
+                setPassword={setPassword}
+                loading={loading}
+                handleLogin={handleLogin}
+                showRegister={showRegister}
             />
-          </div>
-
-          <br />
-
-          <div>
-            <label htmlFor="password">Contraseña</label>
-            <br />
-
-            <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
+        ) : (
+            <RegisterForm
+                name={name}
+                setName={setName}
+                email={email}
+                setEmail={setEmail}
+                password={password}
+                setPassword={setPassword}
+                loading={loading}
+                handleRegister={
+                  handleRegister
+                }
+                showLogin={showLogin}
             />
-          </div>
+        )}
 
-          <br />
+        {message && (
+            <p className={styles.message}>
+              {message}
+            </p>
+        )}
 
-          <button type="submit" disabled={loading}>
-            {loading ? "Ingresando..." : "Ingresar"}
-          </button>
-        </form>
-
-        {message && <p>{message}</p>}
       </main>
   );
 }

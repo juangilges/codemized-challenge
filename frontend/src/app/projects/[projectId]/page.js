@@ -1,87 +1,287 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+
+import ProjectMembers from "../../../components/project/ProjectMembers";
+import TaskCard from "../../../components/project/TaskCard";
+import CreateTaskForm from "../../../components/project/CreateTaskForm";
+
+import useTaskComments from "../../../hooks/useTaskComments";
+import useTasks from "../../../hooks/useTasks";
+import useProjectMembers from "../../../hooks/useProjectMembers";
+import useProject from "../../../hooks/useProject";
+
+import styles from "../../../components/project/project.module.css";
 
 export default function ProjectPage() {
     const router = useRouter();
     const params = useParams();
-
     const projectId = params.projectId;
 
-    const [tasks, setTasks] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState("");
 
-    useEffect(() => {
-        const loadTasks = async () => {
-            const token = localStorage.getItem("token");
+    const {
+        commentsByTask,
+        commentInputs,
+        setInitialComments,
+        initializeTaskComments,
+        removeTaskComments,
+        setCommentValue,
+        handleCreateComment,
+        handleEditComment,
+        handleDeleteComment,
+    } = useTaskComments({
+        router,
+        setMessage,
+    });
 
-            if (!token) {
-                router.push("/");
-                return;
-            }
+    const {
+        tasks,
+        selectedUsers,
+        title,
+        setTitle,
+        description,
+        setDescription,
+        creating,
+        setInitialTasks,
+        setSelectedUser,
+        handleCreateTask,
+        handleEditTask,
+        handleDeleteTask,
+        handleAssignUser,
+        handleStatusChange,
+    } = useTasks({
+        projectId,
+        router,
+        setMessage,
+        initializeTaskComments,
+        removeTaskComments,
+    });
 
-            try {
-                const response = await fetch(
-                    `${process.env.NEXT_PUBLIC_API_URL}/projects/${projectId}/tasks`,
-                    {
-                        method: "GET",
-                        headers: {
-                            Authorization: `Bearer ${token}`,
-                        },
-                    }
-                );
+    const {
+        members,
+        memberEmail,
+        setMemberEmail,
+        addingMember,
+        setInitialMembers,
+        handleAddMember,
+        handleRemoveMember,
+    } = useProjectMembers({
+        projectId,
+        router,
+        setMessage,
+    });
 
-                if (!response.ok) {
-                    setMessage("No se pudieron cargar las tareas");
-                    return;
-                }
-
-                const data = await response.json();
-
-                setTasks(data);
-            } catch (error) {
-                setMessage("No se pudo conectar con el servidor");
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        loadTasks();
-    }, [projectId, router]);
+    const {
+        project,
+        currentUser,
+        loading,
+        isCreator,
+        handleEditProject,
+        handleDeleteProject,
+    } = useProject({
+        projectId,
+        router,
+        setMessage,
+        setInitialTasks,
+        setInitialMembers,
+        setInitialComments,
+    });
 
     if (loading) {
-        return <p>Cargando tareas...</p>;
+        return <p>Cargando proyecto...</p>;
     }
 
     return (
-        <main>
-            <button onClick={() => router.push("/dashboard")}>
-                Volver al dashboard
+        <main className={styles.projectPage}>
+
+            <button
+                type="button"
+                className={styles.backButton}
+                onClick={() =>
+                    router.push("/dashboard")
+                }
+            >
+                ← Volver al dashboard
             </button>
 
-            <h1>Tareas del proyecto</h1>
+            <header className={styles.projectHeader}>
 
-            {message && <p>{message}</p>}
+                <div>
+                    <h1>
+                        {project
+                            ? project.name
+                            : "Proyecto"}
+                    </h1>
 
-            {tasks.length === 0 ? (
-                <p>Este proyecto todavía no tiene tareas.</p>
-            ) : (
-                tasks.map((task) => (
-                    <div key={task.id}>
-                        <h2>{task.title}</h2>
-
+                    {project?.description && (
                         <p>
-                            {task.description || "Sin descripción"}
+                            {project.description}
                         </p>
+                    )}
+                </div>
 
-                        <p>Estado: {task.status}</p>
+                {isCreator && (
+                    <div className={styles.projectActions}>
 
-                        <hr />
+                        <button
+                            type="button"
+                            onClick={handleEditProject}
+                        >
+                            Editar proyecto
+                        </button>
+
+                        <button
+                            type="button"
+                            className={styles.dangerButton}
+                            onClick={handleDeleteProject}
+                        >
+                            Eliminar proyecto
+                        </button>
+
                     </div>
-                ))
+                )}
+
+            </header>
+
+            {message && (
+                <p className={styles.message}>
+                    {message}
+                </p>
             )}
+
+            <div className={styles.topGrid}>
+
+                {isCreator && (
+                    <CreateTaskForm
+                        title={title}
+                        setTitle={setTitle}
+                        description={description}
+                        setDescription={setDescription}
+                        creating={creating}
+                        handleCreateTask={
+                            handleCreateTask
+                        }
+                    />
+                )}
+
+                <ProjectMembers
+                    members={members}
+                    project={project}
+                    isCreator={isCreator}
+                    memberEmail={memberEmail}
+                    setMemberEmail={setMemberEmail}
+                    addingMember={addingMember}
+                    handleAddMember={
+                        handleAddMember
+                    }
+                    handleRemoveMember={
+                        handleRemoveMember
+                    }
+                />
+
+            </div>
+
+            <section className={styles.tasksSection}>
+
+                <div className={styles.tasksHeader}>
+                    <h2>
+                        Tareas
+                    </h2>
+
+                    <p>
+                        Tareas asociadas a este proyecto.
+                    </p>
+                </div>
+
+                {tasks.length === 0 ? (
+
+                    <div className={styles.emptyState}>
+                        <p>
+                            Este proyecto todavía no tiene tareas.
+                        </p>
+                    </div>
+
+                ) : (
+
+                    <div className={styles.taskGrid}>
+
+                        {tasks.map((task) => (
+                            <TaskCard
+                                key={task.id}
+                                task={task}
+                                isCreator={isCreator}
+                                currentUser={currentUser}
+                                members={members}
+
+                                selectedUser={
+                                    selectedUsers[
+                                        task.id
+                                        ] || ""
+                                }
+
+                                setSelectedUser={(value) =>
+                                    setSelectedUser(
+                                        task.id,
+                                        value
+                                    )
+                                }
+
+                                handleAssignUser={
+                                    handleAssignUser
+                                }
+
+                                handleStatusChange={
+                                    handleStatusChange
+                                }
+
+                                handleEditTask={
+                                    handleEditTask
+                                }
+
+                                handleDeleteTask={
+                                    handleDeleteTask
+                                }
+
+                                comments={
+                                    commentsByTask[
+                                        task.id
+                                        ] || []
+                                }
+
+                                commentValue={
+                                    commentInputs[
+                                        task.id
+                                        ] || ""
+                                }
+
+                                setCommentValue={(value) =>
+                                    setCommentValue(
+                                        task.id,
+                                        value
+                                    )
+                                }
+
+                                handleCreateComment={
+                                    handleCreateComment
+                                }
+
+                                handleEditComment={
+                                    handleEditComment
+                                }
+
+                                handleDeleteComment={
+                                    handleDeleteComment
+                                }
+                            />
+                        ))}
+
+                    </div>
+                )}
+
+            </section>
+
         </main>
     );
 }

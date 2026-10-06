@@ -15,4 +15,6 @@ public interface CommentRepository extends JpaRepository<Comment, UUID> {
             UUID commentId,
             UUID authorId
     );
+
+    void deleteByTask_Id(UUID taskId);
 }

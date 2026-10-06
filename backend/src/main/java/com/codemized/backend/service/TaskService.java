@@ -13,11 +13,14 @@ import com.codemized.backend.model.Project;
 import com.codemized.backend.model.Task;
 import com.codemized.backend.model.User;
 
+import com.codemized.backend.repository.CommentRepository;
+import com.codemized.backend.repository.ProjectMemberRepository;
 import com.codemized.backend.repository.ProjectRepository;
 import com.codemized.backend.repository.TaskRepository;
 import com.codemized.backend.repository.UserRepository;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
@@ -28,15 +31,21 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
+    private final ProjectMemberRepository projectMemberRepository;
+    private final CommentRepository commentRepository;
 
     public TaskService(
             TaskRepository taskRepository,
             ProjectRepository projectRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            ProjectMemberRepository projectMemberRepository,
+            CommentRepository commentRepository) {
 
         this.taskRepository = taskRepository;
         this.projectRepository = projectRepository;
         this.userRepository = userRepository;
+        this.projectMemberRepository = projectMemberRepository;
+        this.commentRepository = commentRepository;
     }
 
     // Crear tarea
@@ -66,13 +75,14 @@ public class TaskService {
         task.setDescription(request.getDescription());
         task.setProject(project);
 
-        Task savedTask = taskRepository.save(task);
+        Task savedTask =
+                taskRepository.save(task);
 
         return toResponse(savedTask);
     }
 
     // Listar tareas
-    // Creador o participante del proyecto
+    // Creador o miembro del proyecto
     public List<TaskResponse> listTasks(
             UUID projectId,
             UUID userId) {
@@ -86,15 +96,18 @@ public class TaskService {
                 );
 
         boolean isCreator =
-                project.getCreator().getId().equals(userId);
+                project.getCreator()
+                        .getId()
+                        .equals(userId);
 
-        boolean isParticipant =
-                taskRepository.existsByProject_IdAndAssignee_Id(
-                        projectId,
-                        userId
-                );
+        boolean isMember =
+                projectMemberRepository
+                        .existsByProject_IdAndUser_Id(
+                                projectId,
+                                userId
+                        );
 
-        if (!isCreator && !isParticipant) {
+        if (!isCreator && !isMember) {
             throw new ForbiddenException(
                     "No tienes acceso a este proyecto"
             );
@@ -109,6 +122,7 @@ public class TaskService {
 
     // Asignar, cambiar o quitar responsable
     // Solo el creador del proyecto
+    // El responsable debe ser miembro del proyecto
     public TaskResponse assignTask(
             UUID taskId,
             UUID userId,
@@ -116,7 +130,10 @@ public class TaskService {
 
         Task task = findTask(taskId);
 
-        validateProjectCreator(task, userId);
+        validateProjectCreator(
+                task,
+                userId
+        );
 
         if (assigneeId == null) {
 
@@ -132,10 +149,27 @@ public class TaskService {
                             )
                     );
 
+            UUID projectId =
+                    task.getProject().getId();
+
+            boolean isMember =
+                    projectMemberRepository
+                            .existsByProject_IdAndUser_Id(
+                                    projectId,
+                                    assigneeId
+                            );
+
+            if (!isMember) {
+                throw new BadRequestException(
+                        "El responsable debe ser miembro del proyecto"
+                );
+            }
+
             task.setAssignee(assignee);
         }
 
-        Task updatedTask = taskRepository.save(task);
+        Task updatedTask =
+                taskRepository.save(task);
 
         return toResponse(updatedTask);
     }
@@ -147,7 +181,8 @@ public class TaskService {
             UUID userId,
             UpdateTaskStatusRequest request) {
 
-        Task task = findTask(taskId);
+        Task task =
+                findTask(taskId);
 
         boolean isCreator =
                 task.getProject()
@@ -173,9 +208,12 @@ public class TaskService {
             );
         }
 
-        task.setStatus(request.getStatus());
+        task.setStatus(
+                request.getStatus()
+        );
 
-        Task updatedTask = taskRepository.save(task);
+        Task updatedTask =
+                taskRepository.save(task);
 
         return toResponse(updatedTask);
     }
@@ -187,33 +225,65 @@ public class TaskService {
             UUID userId,
             UpdateTaskRequest request) {
 
-        Task task = findTask(taskId);
+        Task task =
+                findTask(taskId);
 
-        validateProjectCreator(task, userId);
+        validateProjectCreator(
+                task,
+                userId
+        );
 
-        task.setTitle(request.getTitle());
-        task.setDescription(request.getDescription());
+        task.setTitle(
+                request.getTitle()
+        );
 
-        Task updatedTask = taskRepository.save(task);
+        task.setDescription(
+                request.getDescription()
+        );
+
+        Task updatedTask =
+                taskRepository.save(task);
 
         return toResponse(updatedTask);
     }
 
     // Eliminar tarea
+    // Primero elimina sus comentarios
     // Solo el creador del proyecto
+    @Transactional
     public void deleteTask(
             UUID taskId,
             UUID userId) {
 
-        Task task = findTask(taskId);
+        Task task =
+                findTask(taskId);
 
-        validateProjectCreator(task, userId);
+        validateProjectCreator(
+                task,
+                userId
+        );
 
-        taskRepository.delete(task);
+        commentRepository
+                .deleteByTask_Id(taskId);
+
+        taskRepository
+                .delete(task);
     }
 
-    // Busca una tarea o devuelve 404
-    private Task findTask(UUID taskId) {
+    // Listar tareas asignadas al usuario
+    public List<TaskResponse> listAssignedTasks(
+            UUID userId) {
+
+        return taskRepository
+                .findByAssignee_Id(userId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    // Buscar tarea o devolver 404
+    private Task findTask(
+            UUID taskId) {
 
         return taskRepository
                 .findById(taskId)
@@ -224,7 +294,7 @@ public class TaskService {
                 );
     }
 
-    // Comprueba que el usuario sea creador del proyecto
+    // Comprobar que el usuario sea creador del proyecto
     private void validateProjectCreator(
             Task task,
             UUID userId) {
@@ -242,13 +312,15 @@ public class TaskService {
         }
     }
 
-    // Convierte Task en TaskResponse
-    private TaskResponse toResponse(Task task) {
+    // Convertir Task a TaskResponse
+    private TaskResponse toResponse(
+            Task task) {
 
         UUID assigneeId = null;
 
         if (task.getAssignee() != null) {
-            assigneeId = task.getAssignee().getId();
+            assigneeId =
+                    task.getAssignee().getId();
         }
 
         return new TaskResponse(
@@ -262,13 +334,4 @@ public class TaskService {
                 task.getUpdatedAt()
         );
     }
-
-    public List<TaskResponse> listAssignedTasks(UUID userId) {
-
-        return taskRepository.findByAssignee_Id(userId)
-                .stream()
-                .map(this::toResponse)
-                .toList();
-    }
-
 }

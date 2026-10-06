@@ -3,10 +3,18 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import UserProfile from "../../components/dashboard/UserProfile";
+import CreateProjectForm from "../../components/dashboard/CreateProjectForm";
+import ProjectList from "../../components/dashboard/ProjectList";
+
+import styles from "../../components/dashboard/dashboard.module.css";
+
 export default function DashboardPage() {
     const router = useRouter();
 
+    const [currentUser, setCurrentUser] = useState(null);
     const [projects, setProjects] = useState([]);
+
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState("");
 
@@ -15,7 +23,7 @@ export default function DashboardPage() {
     const [creating, setCreating] = useState(false);
 
     useEffect(() => {
-        const loadProjects = async () => {
+        const loadDashboard = async () => {
             const token = localStorage.getItem("token");
 
             if (!token) {
@@ -24,41 +32,184 @@ export default function DashboardPage() {
             }
 
             try {
-                const response = await fetch(
-                    `${process.env.NEXT_PUBLIC_API_URL}/projects`,
-                    {
-                        method: "GET",
-                        headers: {
-                            Authorization: `Bearer ${token}`,
-                        },
-                    }
-                );
+                const [
+                    projectsResponse,
+                    userResponse,
+                ] = await Promise.all([
+                    fetch(
+                        `${process.env.NEXT_PUBLIC_API_URL}/projects`,
+                        {
+                            method: "GET",
+                            headers: {
+                                Authorization: `Bearer ${token}`,
+                            },
+                        }
+                    ),
 
-                if (!response.ok) {
-                    setMessage("No se pudieron cargar los proyectos");
+                    fetch(
+                        `${process.env.NEXT_PUBLIC_API_URL}/users/me`,
+                        {
+                            method: "GET",
+                            headers: {
+                                Authorization: `Bearer ${token}`,
+                            },
+                        }
+                    ),
+                ]);
+
+                if (
+                    !projectsResponse.ok ||
+                    !userResponse.ok
+                ) {
+                    setMessage(
+                        "No se pudo cargar el dashboard"
+                    );
+
                     return;
                 }
 
-                const data = await response.json();
+                const projectsData =
+                    await projectsResponse.json();
 
-                setProjects(data);
+                const userData =
+                    await userResponse.json();
+
+                setProjects(projectsData);
+                setCurrentUser(userData);
+
             } catch (error) {
-                setMessage("No se pudo conectar con el servidor");
+                setMessage(
+                    "No se pudo conectar con el servidor"
+                );
+
             } finally {
                 setLoading(false);
             }
         };
 
-        loadProjects();
+        loadDashboard();
+
     }, [router]);
+
+    const handleEditProfile = async () => {
+        const token =
+            localStorage.getItem("token");
+
+        if (!token) {
+            router.push("/");
+            return;
+        }
+
+        const newName = window.prompt(
+            "Nuevo nombre",
+            currentUser.name
+        );
+
+        if (newName === null) {
+            return;
+        }
+
+        if (!newName.trim()) {
+            setMessage(
+                "El nombre es obligatorio"
+            );
+
+            return;
+        }
+
+        const newEmail = window.prompt(
+            "Nuevo correo electrónico",
+            currentUser.email
+        );
+
+        if (newEmail === null) {
+            return;
+        }
+
+        if (!newEmail.trim()) {
+            setMessage(
+                "El correo electrónico es obligatorio"
+            );
+
+            return;
+        }
+
+        setMessage("");
+
+        try {
+            const response = await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL}/users/me`,
+                {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type":
+                            "application/json",
+                        Authorization:
+                            `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        name: newName,
+                        email: newEmail,
+                    }),
+                }
+            );
+
+            const data =
+                await response.json();
+
+            if (!response.ok) {
+                setMessage(
+                    data.message ||
+                    "No se pudo editar el perfil"
+                );
+
+                return;
+            }
+
+            const emailChanged =
+                data.email !== currentUser.email;
+
+            setCurrentUser(data);
+
+            if (emailChanged) {
+                localStorage.removeItem("token");
+
+                window.alert(
+                    "Perfil actualizado correctamente. Como cambiaste tu email, iniciá sesión nuevamente."
+                );
+
+                router.push("/");
+
+                return;
+            }
+
+            setMessage(
+                "Perfil actualizado correctamente"
+            );
+
+        } catch (error) {
+            setMessage(
+                "No se pudo conectar con el servidor"
+            );
+        }
+    };
 
     const handleCreateProject = async (event) => {
         event.preventDefault();
 
-        const token = localStorage.getItem("token");
+        const token =
+            localStorage.getItem("token");
 
         if (!token) {
             router.push("/");
+            return;
+        }
+
+        if (!projectName.trim()) {
+            setMessage(
+                "El nombre del proyecto es obligatorio"
+            );
+
             return;
         }
 
@@ -71,20 +222,28 @@ export default function DashboardPage() {
                 {
                     method: "POST",
                     headers: {
-                        Authorization: `Bearer ${token}`,
-                        "Content-Type": "application/json",
+                        Authorization:
+                            `Bearer ${token}`,
+                        "Content-Type":
+                            "application/json",
                     },
                     body: JSON.stringify({
                         name: projectName,
-                        description: projectDescription,
+                        description:
+                        projectDescription,
                     }),
                 }
             );
 
-            const data = await response.json();
+            const data =
+                await response.json();
 
             if (!response.ok) {
-                setMessage(data.message || "No se pudo crear el proyecto");
+                setMessage(
+                    data.message ||
+                    "No se pudo crear el proyecto"
+                );
+
                 return;
             }
 
@@ -96,9 +255,15 @@ export default function DashboardPage() {
             setProjectName("");
             setProjectDescription("");
 
-            setMessage("Proyecto creado correctamente");
+            setMessage(
+                "Proyecto creado correctamente"
+            );
+
         } catch (error) {
-            setMessage("No se pudo conectar con el servidor");
+            setMessage(
+                "No se pudo conectar con el servidor"
+            );
+
         } finally {
             setCreating(false);
         }
@@ -106,98 +271,82 @@ export default function DashboardPage() {
 
     const handleLogout = () => {
         localStorage.removeItem("token");
+
         router.push("/");
     };
 
     if (loading) {
-        return <p>Cargando proyectos...</p>;
+        return (
+            <p>
+                Cargando dashboard...
+            </p>
+        );
     }
 
     return (
-        <main>
-            <h1>Dashboard</h1>
+        <main className={styles.dashboard}>
 
-            <button onClick={handleLogout}>
-                Cerrar sesión
-            </button>
+            <header className={styles.header}>
 
-            <hr />
+                <div className={styles.headerText}>
+                    <h1>
+                        Dashboard
+                    </h1>
 
-            <h2>Crear proyecto</h2>
-
-            <form onSubmit={handleCreateProject}>
-                <div>
-                    <label htmlFor="projectName">
-                        Nombre del proyecto
-                    </label>
-
-                    <br />
-
-                    <input
-                        id="projectName"
-                        type="text"
-                        value={projectName}
-                        onChange={(event) =>
-                            setProjectName(event.target.value)
-                        }
-                        required
-                    />
+                    <p className={styles.welcome}>
+                        Hola, {currentUser?.name}
+                    </p>
                 </div>
 
-                <br />
-
-                <div>
-                    <label htmlFor="projectDescription">
-                        Descripción
-                    </label>
-
-                    <br />
-
-                    <textarea
-                        id="projectDescription"
-                        value={projectDescription}
-                        onChange={(event) =>
-                            setProjectDescription(event.target.value)
-                        }
-                    />
-                </div>
-
-                <br />
-
-                <button type="submit" disabled={creating}>
-                    {creating ? "Creando..." : "Crear proyecto"}
+                <button
+                    type="button"
+                    className={styles.logoutButton}
+                    onClick={handleLogout}
+                >
+                    Cerrar sesión
                 </button>
-            </form>
 
-            {message && <p>{message}</p>}
+            </header>
 
-            <hr />
+            <div className={styles.topGrid}>
 
-            <h2>Mis proyectos</h2>
+                <UserProfile
+                    currentUser={currentUser}
+                    handleEditProfile={
+                        handleEditProfile
+                    }
+                />
 
-            {projects.length === 0 ? (
-                <p>No tenés proyectos creados.</p>
-            ) : (
-                projects.map((project) => (
-                    <div key={project.id}>
-                        <h3>{project.name}</h3>
+                <CreateProjectForm
+                    projectName={projectName}
+                    setProjectName={setProjectName}
+                    projectDescription={
+                        projectDescription
+                    }
+                    setProjectDescription={
+                        setProjectDescription
+                    }
+                    creating={creating}
+                    handleCreateProject={
+                        handleCreateProject
+                    }
+                />
 
-                        <p>
-                            {project.description || "Sin descripción"}
-                        </p>
+            </div>
 
-                        <button
-                            onClick={() =>
-                                router.push(`/projects/${project.id}`)
-                            }
-                        >
-                            Ver proyecto
-                        </button>
-
-                        <hr />
-                    </div>
-                ))
+            {message && (
+                <p className={styles.message}>
+                    {message}
+                </p>
             )}
+
+            <div className={styles.projectsSection}>
+                <ProjectList
+                    projects={projects}
+                    router={router}
+                />
+            </div>
+
         </main>
     );
 }
