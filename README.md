@@ -1,377 +1,267 @@
-# Codemized Challenge
+# Codemized Challenge - Junior Full Stack
 
-Aplicación de gestión de proyectos y tareas desarrollada con **Spring Boot + PostgreSQL + Next.js**.
+Aplicación full stack para la gestión de usuarios, proyectos, tareas y comentarios, desarrollada como parte del Practical Implementation Exercise de Codemized.
 
-## Estado actual
-
-El proyecto cuenta con un backend funcional y un frontend inicial conectado a la API.
-
-### Backend
-
-- Autenticación mediante JWT.
-- Login de usuarios.
-- Gestión de usuarios.
-- Gestión de proyectos.
-- Gestión de tareas.
-- Asignación de tareas a usuarios.
-- Estados de tareas.
-- Gestión de comentarios.
-- Control de permisos.
-- Validaciones de solicitudes.
-- Manejo centralizado de errores HTTP.
-- CORS configurado para el frontend.
-- Endpoint para consultar usuarios.
-- Endpoint para consultar las tareas asignadas al usuario autenticado.
+## Tecnologías utilizadas
 
 ### Frontend
-
-- Next.js con App Router.
-- Pantalla de login conectada al backend.
-- Persistencia del JWT durante la sesión.
-- Redirección al dashboard después del login.
-- Protección básica del dashboard cuando no existe token.
-- Cierre de sesión.
-- Listado de proyectos.
-- Creación de proyectos.
-- Navegación desde un proyecto hacia sus tareas.
-- Consumo de la API REST del backend.
-
----
-
-## Tecnologías
-
-### Backend
-
-- Java
-- Spring Boot
-- Spring Security
-- JWT
-- Spring Data JPA
-- PostgreSQL
-- Maven
-
-### Frontend
-
 - Next.js
 - React
 - JavaScript
-- CSS
+- CSS Modules
+- Fetch API
+
+### Backend
+- Java 21
+- Spring Boot
+- Spring Security
+- Spring Data JPA
+- Hibernate
+- JWT
+- Maven
+
+### Base de datos
+- PostgreSQL 16
 
 ### Infraestructura
-
 - Docker
 - Docker Compose
-- PostgreSQL
 
 ---
 
-## Estructura
+## Funcionalidades
+
+La aplicación permite:
+
+- Registrar usuarios.
+- Iniciar y cerrar sesión.
+- Editar el perfil del usuario.
+- Crear proyectos.
+- Listar los proyectos a los que pertenece el usuario autenticado.
+- Editar y eliminar proyectos.
+- Agregar y quitar miembros de un proyecto.
+- Crear tareas dentro de un proyecto.
+- Listar tareas por proyecto.
+- Editar y eliminar tareas.
+- Asignar tareas a miembros del proyecto.
+- Cambiar el estado de una tarea.
+- Agregar comentarios a tareas.
+- Editar y eliminar comentarios propios.
+- Aplicar permisos según el usuario y su relación con el proyecto.
+
+Estados disponibles para una tarea:
+
+- `PENDIENTE`
+- `EN_PROGRESO`
+- `COMPLETADA`
+
+---
+
+## Arquitectura
+
+La aplicación está dividida en frontend, backend y base de datos.
 
 ```text
-Codemized-Challenge/
+Frontend Next.js
+      |
+      | HTTP / JSON
+      v
+Backend Spring Boot
+      |
+      | JPA / Hibernate
+      v
+PostgreSQL
+```
+
+### Backend
+
+El backend utiliza una arquitectura por capas:
+
+```text
+Controller
+    |
+    v
+Service
+    |
+    v
+Repository
+    |
+    v
+Database
+```
+
+- **Controller:** recibe las solicitudes HTTP y devuelve las respuestas.
+- **Service:** contiene la lógica de negocio y validaciones.
+- **Repository:** gestiona el acceso a datos mediante Spring Data JPA.
+- **Model:** contiene las entidades persistidas.
+- **DTO:** permite recibir y devolver datos sin exponer directamente las entidades.
+
+### Frontend
+
+El frontend utiliza Next.js con App Router.
+
+Rutas principales:
+
+```text
+/                       Login y registro
+/dashboard              Perfil y proyectos del usuario
+/projects/[projectId]   Gestión de un proyecto
+```
+
+La interfaz está dividida en componentes reutilizables y custom hooks para separar presentación y lógica.
+
+```text
+components/
+├── auth/
+├── dashboard/
+└── project/
+
+hooks/
+├── useProject.js
+├── useProjectMembers.js
+├── useTasks.js
+└── useTaskComments.js
+```
+
+---
+
+## Autenticación
+
+La aplicación utiliza autenticación mediante JWT.
+
+Después de iniciar sesión, el frontend almacena el token y lo envía en las solicitudes autenticadas mediante:
+
+```http
+Authorization: Bearer <token>
+```
+
+Las contraseñas se almacenan cifradas utilizando BCrypt.
+
+---
+
+## Modelo de datos
+
+### User
+Representa un usuario registrado. Puede crear proyectos, pertenecer a proyectos, ser responsable de tareas y crear comentarios.
+
+### Project
+Representa un proyecto. Tiene un usuario creador, puede tener varios miembros y puede contener varias tareas.
+
+### ProjectMember
+Representa la relación entre un usuario y un proyecto.
+
+### Task
+Representa una unidad de trabajo dentro de un proyecto. Puede tener un usuario responsable, un estado y comentarios.
+
+### Comment
+Representa un comentario asociado a una tarea y creado por un usuario.
+
+---
+
+## Estructura del proyecto
+
+```text
+Codemized-Challengue/
+│
 ├── backend/
+│   ├── src/
+│   ├── pom.xml
+│   └── Dockerfile
+│
 ├── frontend/
+│   ├── src/
+│   │   ├── app/
+│   │   ├── components/
+│   │   └── hooks/
+│   ├── package.json
+│   ├── Dockerfile
+│   └── .dockerignore
+│
 ├── docker-compose.yml
 └── README.md
 ```
 
 ---
 
-# Requisitos
+## Ejecución con Docker
 
-Antes de ejecutar el proyecto, tener instalado:
+### Requisitos
+- Docker
+- Docker Compose
 
-- Java
-- Maven Wrapper incluido en el backend
-- Node.js / npm
-- Docker Desktop
+No es necesario instalar Java, Maven, Node.js ni PostgreSQL si se ejecuta la aplicación con Docker.
 
----
-
-# 1. Levantar PostgreSQL
+### Iniciar la aplicación
 
 Desde la raíz del proyecto:
 
-```powershell
-docker compose up -d
+```bash
+docker compose up --build
 ```
 
-Comprobar que el contenedor esté funcionando:
+También puede ejecutarse en segundo plano:
 
-```powershell
-docker ps
+```bash
+docker compose up -d --build
 ```
 
-Debe aparecer el contenedor de PostgreSQL.
+Docker Compose inicia:
+- PostgreSQL
+- Backend Spring Boot
+- Frontend Next.js
 
----
-
-# 2. Levantar el backend
-
-Abrir una terminal en:
+### Frontend
 
 ```text
-Codemized-Challenge/backend
+http://localhost:3000
 ```
 
-Ejecutar:
-
-```powershell
-.\mvnw.cmd spring-boot:run
-```
-
-El backend queda disponible en:
+### Backend
 
 ```text
 http://localhost:8080
 ```
 
-Esperar en la consola de Spring el mensaje:
+### PostgreSQL
 
 ```text
-Started BackendApplication
+localhost:5432
 ```
 
 ---
 
-# 3. Levantar el frontend
+## Detener la aplicación
 
-Abrir otra terminal en:
-
-```text
-Codemized-Challenge/frontend
+```bash
+docker compose down
 ```
 
-Instalar dependencias si es la primera ejecución:
+Los datos de PostgreSQL se mantienen mediante el volumen configurado en Docker Compose.
 
-```powershell
-npm.cmd install
-```
+Para eliminar también el volumen y reiniciar la base desde cero:
 
-Crear el archivo:
-
-```text
-frontend/.env.local
-```
-
-con:
-
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8080
-```
-
-Luego ejecutar:
-
-```powershell
-npm.cmd run dev
-```
-
-El frontend queda disponible en:
-
-```text
-http://localhost:3000
+```bash
+docker compose down -v
 ```
 
 ---
 
-# 4. Flujo de prueba recomendado
+## Permisos principales
 
-## Login
-
-Abrir:
-
-```text
-http://localhost:3000
-```
-
-Ingresar con uno de los usuarios de prueba configurados en la base de datos.
-
-> Las contraseñas de prueba no se documentan en este README. Compartirlas por separado si son necesarias para la revisión.
-
-Después del login, el usuario es enviado al dashboard.
+- Solo el creador puede editar o eliminar un proyecto.
+- Solo el creador puede agregar o quitar miembros.
+- Un miembro con tareas asignadas no puede ser eliminado del proyecto.
+- Solo el creador puede asignar responsables.
+- El creador o el responsable de una tarea pueden modificar su estado.
+- Los miembros pueden visualizar tareas y comentarios.
+- Cada usuario puede editar o eliminar sus propios comentarios.
 
 ---
 
-## Dashboard
+## Consideraciones
 
-Desde el dashboard se puede:
-
-- Ver los proyectos.
-- Crear un nuevo proyecto.
-- Entrar a un proyecto.
-- Cerrar sesión.
-
----
-
-## Proyectos
-
-Cada proyecto tiene un identificador propio y puede contener tareas.
-
-Desde el frontend se puede crear un proyecto mediante:
-
-```http
-POST /projects
-```
-
----
-
-## Tareas
-
-El backend permite trabajar con tareas, incluyendo:
-
-- título
-- descripción
-- estado
-- proyecto
-- usuario asignado
-
-También existe:
-
-```http
-GET /tasks/assigned-to-me
-```
-
-que devuelve las tareas asignadas al usuario autenticado.
-
----
-
-## Usuarios
-
-El backend dispone de:
-
-```http
-GET /users
-```
-
-para obtener los usuarios disponibles sin exponer información sensible como contraseñas.
-
----
-
-## Comentarios
-
-Las tareas pueden tener comentarios asociados a usuarios.
-
----
-
-# Manejo de errores
-
-El backend tiene manejo centralizado de errores.
-
-Se contemplan, entre otros:
-
-| Código | Situación |
-|---|---|
-| 400 | Solicitud inválida / datos incorrectos |
-| 401 | Usuario no autenticado / credenciales incorrectas |
-| 403 | Usuario autenticado pero sin permisos |
-| 404 | Recurso inexistente |
-| 500 | Error interno no controlado |
-
-También se manejan errores de JSON mal formado y errores de validación.
-
----
-
-# CORS
-
-El backend permite solicitudes desde:
-
-```text
-http://localhost:3000
-```
-
-Esto permite que el frontend Next.js se comunique con la API Spring Boot desde el navegador.
-
----
-
-# Variables de entorno
-
-## Frontend
-
-Archivo:
-
-```text
-frontend/.env.local
-```
-
-Variable:
-
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8080
-```
-
-No subir archivos `.env.local` con secretos reales al repositorio.
-
----
-
-# Antes de compartir el proyecto
-
-Se recomienda NO incluir:
-
-```text
-node_modules/
-.next/
-backend/target/
-.env
-.env.local
-```
-
-También revisar que no haya:
-
-- contraseñas reales
-- tokens JWT
-- claves privadas
-- credenciales personales
-- archivos de configuración con secretos
-
----
-
-# Orden recomendado para una demo
-
-1. Levantar Docker/PostgreSQL.
-2. Levantar Spring Boot.
-3. Levantar Next.js.
-4. Abrir `http://localhost:3000`.
-5. Iniciar sesión.
-6. Mostrar el dashboard.
-7. Crear un proyecto.
-8. Entrar al proyecto.
-9. Mostrar las tareas.
-10. Mostrar asignación de tareas y comentarios.
-11. Probar cierre de sesión.
-12. Mostrar brevemente la API y el manejo de permisos si se solicita.
-
----
-
-# Estado del proyecto
-
-### Implementado
-
-- Backend REST funcional.
-- Autenticación JWT.
-- Autorización y permisos.
-- Usuarios.
-- Proyectos.
-- Tareas.
-- Asignaciones.
-- Estados.
-- Comentarios.
-- Validaciones.
-- Manejo de errores.
-- CORS.
-- Frontend Next.js conectado a la API.
-- Login.
-- Dashboard.
-- Creación de proyectos.
-- Navegación de proyectos.
-
-### En desarrollo
-
-La interfaz visual todavía se encuentra en una etapa inicial. La lógica principal ya está conectada con el backend, pero quedan por desarrollar/mejorar componentes de UI, experiencia de usuario y algunas pantallas de gestión.
-
----
-
-# Nota para revisión
-
-El objetivo de esta versión es mostrar una integración funcional entre frontend y backend, con autenticación, autorización y operaciones principales de proyectos y tareas.
-
-La interfaz visual continuará evolucionando sobre esta base.
+- La aplicación utiliza persistencia real con PostgreSQL.
+- No utiliza Backend-as-a-Service.
+- El backend mantiene separación entre controller, service y repository.
+- El frontend está componentizado y utiliza custom hooks para separar responsabilidades.
+- La aplicación completa puede iniciarse con Docker Compose.
